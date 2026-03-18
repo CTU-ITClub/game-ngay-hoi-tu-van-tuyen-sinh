@@ -43,7 +43,7 @@ Press **Q** or **Esc** to quit at any time.
 
 ## 📈 Progression
 
-- A **new DVD logo** spawns every ~15 seconds (speed increases each level).
+- A **new DVD logo** spawns every ~9 seconds (speed increases each level).
 - Coins respawn **4 seconds** after collection.
 - The skeleton overlay shows your **hitbox keypoints** in real time.
 
