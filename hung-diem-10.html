@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>🎯 Hứng Điểm 10</title>
+  <link href="https://fonts.googleapis.com/css2?family=Bangers&family=Nunito:wght@700;800;900&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_detection/face_detection.js" crossorigin="anonymous"></script>
+  <link rel="stylesheet" href="hung-diem-10.css">
+</head>
+<body>
+  <video id="src-video" autoplay playsinline muted></video>
+  <canvas id="game-canvas"></canvas>
+
+  <div id="ui-overlay">
+    <div id="hud-top">
+      <div class="hud-pill">
+        <span class="hud-label">⭐ Điểm</span>
+        <span class="hud-val" id="score-val">0</span>
+      </div>
+      <div class="hud-pill">
+        <span id="hearts-hud">
+          <span class="heart" id="h1">❤️</span>
+          <span class="heart" id="h2">❤️</span>
+          <span class="heart" id="h3">❤️</span>
+        </span>
+      </div>
+      <div class="hud-pill">
+        <span class="hud-label">🔥 Cấp</span>
+        <span class="hud-val" id="level-val">1</span>
+        <span class="hud-label" id="next-level-label" style="color:rgba(255,255,255,.28)">15s</span>
+      </div>
+    </div>
+
+    <div id="legend">
+      <h4>📖 Chú Thích</h4>
+      <div class="leg-row"><div class="leg-dot" style="background:#14532d;color:#fbbf24;border:2.5px solid #4ade80">10</div><span class="leg-txt">+10 điểm</span></div>
+      <div class="leg-row"><div class="leg-dot" style="background:#1e3a8a;color:#fff;border:2.5px solid #60a5fa">5</div><span class="leg-txt">+5 điểm</span></div>
+      <div class="leg-row"><div class="leg-dot" style="background:#4c1d95;color:#fff;border:2.5px solid #c77dff">20</div><span class="leg-txt">+20 (hiếm)</span></div>
+      <div class="leg-row"><div class="leg-dot" style="background:#7f1d1d;color:#fff;border:2.5px solid #ef4444">0</div><span class="leg-txt">-1 mạng ☠️</span></div>
+    </div>
+
+    <div id="hud-bottom">
+      <button class="btn btn-select" id="btn-select">📸 Chọn người chơi</button>
+      <button class="btn btn-start"  id="btn-start"  disabled>▶ Bắt Đầu</button>
+    </div>
+
+    <div id="status-toast">Đang khởi động camera và tải mô hình nhận diện...</div>
+  </div>
+
+  <script src="hung-diem-10.js"></script>
+</body>
+</html>
