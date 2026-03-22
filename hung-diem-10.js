@@ -27,6 +27,7 @@ let selectedFace = null;
 let playerFace   = null;     
 let faceTarget   = { cx: 0, cy: 0, w: 100, h: 100 }; 
 let anchorY      = 0;        
+let trackingLock = null;
 let score        = 0;
 let lives        = 3;
 let items        = [];
@@ -43,11 +44,11 @@ let flashColor   = null, flashAlpha = 0;
 // ── LEVEL CONFIG ────────────────────────────────────────
 const LEVEL_BASE = [
   null,
-  { sMin:0.9, sMax:1.6, spawnMs:2200, badW:5 },
-  { sMin:1.3, sMax:2.1, spawnMs:1700, badW:6 },
-  { sMin:1.8, sMax:2.7, spawnMs:1300, badW:7 },
-  { sMin:2.4, sMax:3.4, spawnMs:1000, badW:8 },
-  { sMin:3.0, sMax:4.2, spawnMs: 800, badW:9 },
+  { sMin:0.9, sMax:1.6, spawnMs:2200, badW:3 },
+  { sMin:1.3, sMax:2.1, spawnMs:1700, badW:4 },
+  { sMin:1.8, sMax:2.7, spawnMs:1300, badW:5 },
+  { sMin:2.4, sMax:3.4, spawnMs:1000, badW:6 },
+  { sMin:3.0, sMax:4.2, spawnMs: 800, badW:7 },
 ];
 function lvCfg(lv) {
   if (lv >= 1 && lv <= 5) return LEVEL_BASE[lv];
@@ -62,6 +63,50 @@ function elapsedSec() {
   return ((gamePausedAt || Date.now()) - gameStartTime) / 1000;
 }
 function calcLevel() { return Math.floor(elapsedSec() / 15) + 1; }
+
+function createTrackingLock(face) {
+  return {
+    baseW: face.w,
+    baseH: face.h,
+    ratio: face.w / Math.max(face.h, 1),
+    lastSeenAt: Date.now()
+  };
+}
+
+function scoreFaceCandidate(face, referenceFace, lock) {
+  const dist = Math.hypot(face.cx - referenceFace.cx, face.cy - referenceFace.cy);
+  const sizeDiff = Math.abs(face.w - lock.baseW) / Math.max(lock.baseW, 1);
+  const ratio = face.w / Math.max(face.h, 1);
+  const ratioDiff = Math.abs(ratio - lock.ratio);
+  return dist + sizeDiff * W * 0.55 + ratioDiff * W * 0.35;
+}
+
+function findTrackedFace(faces, referenceFace, lock) {
+  if (!faces.length || !referenceFace || !lock) return null;
+
+  let best = null;
+  let bestScore = Infinity;
+
+  for (const face of faces) {
+    const dist = Math.hypot(face.cx - referenceFace.cx, face.cy - referenceFace.cy);
+    const sizeRatio = face.w / Math.max(lock.baseW, 1);
+    const ratio = face.w / Math.max(face.h, 1);
+    const ratioDiff = Math.abs(ratio - lock.ratio);
+    const isNearEnough = dist < Math.max(referenceFace.w * 1.6, W * 0.16);
+    const isSimilarSize = sizeRatio > 0.72 && sizeRatio < 1.4;
+    const isSimilarShape = ratioDiff < 0.42;
+
+    if (!isNearEnough || !isSimilarSize || !isSimilarShape) continue;
+
+    const score = scoreFaceCandidate(face, referenceFace, lock);
+    if (score < bestScore) {
+      best = face;
+      bestScore = score;
+    }
+  }
+
+  return best;
+}
 
 // ── MEDIAPIPE ───────────────────────────────────────────
 async function initCamera() {
@@ -101,7 +146,7 @@ async function initCamera() {
     
     const cam = new Camera(video, {
       onFrame: async () => { await det.send({ image:video }); },
-      width: 640, height: 480 
+      width: 640, height: 360 
     });
     await cam.start();
     setStatus('✅ Camera sẵn sàng! Nhấn "Chọn người chơi" để bắt đầu.');
@@ -121,12 +166,14 @@ canvas.addEventListener('click', e => {
     const pad = 24;
     if (mx > f.x-pad && mx < f.x+f.w+pad && my > f.y-pad && my < f.y+f.h+pad) {
       selectedFace = f;
+      trackingLock = createTrackingLock(f);
       btnSt.disabled = false;
       setStatus('✅ Đã chọn! Nhấn "Bắt Đầu" hoặc click lại vào mặt để thay đổi.');
       return;
     }
   }
   selectedFace = null;
+  trackingLock = null;
   btnSt.disabled = true;
   setStatus('👆 Click vào mặt của bạn để chọn người chơi.');
 });
@@ -222,7 +269,7 @@ function renderSelecting() {
     ctx.textAlign='center'; ctx.textBaseline='middle';
     ctx.fillText(i+1, nbx, nby);
 
-    if (isSel) drawBasket(f.cx, f.y, Math.max(110, f.w*.95));
+    if (isSel) drawBasket(f.cx, f.y, Math.max(88, f.w*.75));
 
     const txt = isSel ? '✅ ĐÃ CHỌN — Nhấn Bắt Đầu!' : `Người ${i+1} — Click để chọn`;
     const lw  = Math.max(250, txt.length * 12.5), lh = 34;
@@ -241,6 +288,16 @@ function renderSelecting() {
 function renderPlaying() {
   legendEl.style.opacity='0';
   if (allFaces.length > 0) noFaceTimer=0; else noFaceTimer++;
+
+  const trackedFace = findTrackedFace(allFaces, playerFace || faceTarget, trackingLock);
+  if (trackedFace) {
+    faceTarget.cx = trackedFace.cx;
+    faceTarget.cy = anchorY + (trackedFace.cy - anchorY) * 1.8;
+    trackingLock.lastSeenAt = Date.now();
+    trackingLock.baseW = trackingLock.baseW * 0.92 + trackedFace.w * 0.08;
+    trackingLock.baseH = trackingLock.baseH * 0.92 + trackedFace.h * 0.08;
+    trackingLock.ratio = trackingLock.baseW / Math.max(trackingLock.baseH, 1);
+  }
 
   if (playerFace && faceTarget) {
       // Tính khoảng cách để xác định gia tốc LERP
@@ -269,7 +326,7 @@ function renderPlaying() {
   nextLvlEl.textContent = Math.ceil(15 - secInLv) + 's';
 
   if (playerFace) {
-    drawBasket(playerFace.cx, playerFace.y, Math.max(110, playerFace.w*.95));
+    drawBasket(playerFace.cx, playerFace.y, Math.max(88, playerFace.w*.75));
     updateItems();
   }
   drawEffects();
@@ -508,6 +565,7 @@ function startGame() {
   if (!selectedFace) return;
   playerFace = { ...selectedFace }; 
   faceTarget = { ...selectedFace };
+  trackingLock = trackingLock || createTrackingLock(selectedFace);
   
   anchorY = selectedFace.cy; 
   
@@ -529,7 +587,7 @@ function endGame() {
 }
 
 btnSel.addEventListener('click', () => {
-  items=[]; effects=[]; playerFace=null; selectedFace=null; basket=null; levelBanner=null;
+  items=[]; effects=[]; playerFace=null; selectedFace=null; basket=null; levelBanner=null; trackingLock=null;
   score=0; lives=3; currentLevel=1; gameStartTime=0; gamePausedAt=0;
   scoreEl.textContent='0'; levelEl.textContent='1'; nextLvlEl.textContent='15s';
   resetHeartsUI(); legendEl.style.opacity='1';
